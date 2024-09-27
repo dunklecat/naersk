@@ -152,7 +152,7 @@ rec
 
  ifdForceCopy = path:
         let
-          derivation = runCommand "ifd-force-copy" {} ''
+          derivation = runCommandLocal "ifd-force-copy" {} ''
             mkdir -p $out
             echo "./path" > $out/default.nix
             cp --no-preserve=mode -R ${path} $out/path
