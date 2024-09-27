@@ -150,6 +150,15 @@ rec
               package = removeAttrs attrs.package [ "build" ];
             };
 
+ ifdForceCopy = path:
+        let
+          derivation = runCommand "ifd-force-copy" {} ''
+            mkdir -p $out
+            echo "./path" > $out/default.nix
+            cp --no-preserve=mode -R ${path} $out/path
+          '';
+        in import "${derivation}";
+
         cargotomlss = map
           ({ name, toml }:
             "${name}:${builtinz.writeTOML "Cargo.toml" (fixupCargoToml toml)}")
@@ -157,7 +166,7 @@ rec
 
       in
         runCommandLocal "dummy-src"
-          { inherit copySources copySourcesFrom cargotomlss; }
+          { inherit copySources cargotomlss; }
           ''
             mkdir -p $out/.cargo
             ${lib.optionalString (! isNull cargoconfig) "cp ${cargoconfig} $out/.cargo/config"}
@@ -191,15 +200,11 @@ rec
             # This needs to be done after the creation of the dummy to make
             # sure the dummy source files do not tramp on the patch
             # dependencies.
-            for p in $copySources; do
+            ${lib.concatStrings (builtins.map (p: ''
               echo "Copying patched source $p to $out..."
-              mkdir -p "$out/$p"
-
-              chmod -R +w "$out/$p"
-              echo copying "$copySourcesFrom/$p"/ to "$out/$p"
-
-              cp --no-preserve=mode -R "$copySourcesFrom/$p"/* "$out/$p"
-            done
+              mkdir -p "$out/$(dirname "${p}")"
+              cp --no-preserve=mode -R ${ifdForceCopy (copySourcesFrom + "/${p}")} "$out/${p}"
+            '') copySources)}
           '';
 
   mkPackages = cargolock:
